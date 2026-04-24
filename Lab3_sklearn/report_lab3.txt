@@ -1,0 +1,53 @@
+InternetService, OnlineSecurity, Contract and PaymentMethod are among the magnitudes with most variability between the customers who churned or stayed.
+See feature_distributions_telco.png
+I would recommend the company to try to close contracts for as long as possible:
+    - 2 year contracts have very low churn
+    - Customers on a month-to-month contracts tend to churn often
+And also to sell additional products to the same customer:
+    - Customers with online security churn a lot less than those without it.
+Avoid charging customers via electronic checks
+    - It has a much higher churn chance than all other payment methods considered.
+
+The accuracy is always very high (for example, with k=5, the accuracy is 0.7644).
+This is not representative because the customers that didn't churn are around 4 times more than those who did.
+The dataset is therefore unbalanced and it is easy to increase accuracy by predicting correctly that customers did not leave.
+
+I believe that this imbalance is the biggest limitation of the model.
+
+Approach:
+    - Conversion of all cathegorical columns into binary
+    - Remove any columns with 0-variance (constant values)
+    - Remove columns that are highly correlated
+    - Test several K-values
+    - Choose the K-value with the highest recall
+
+The most interesting metric for this case is the recall.
+We need to minimize the number of false negatives (customers that left the company but were not detected).
+
+=== TESTS WITH DIFFERENT VALUES OF K ===
+
+=== Number of neighbors (k): 1 ===
+Test Recall: 0.5267
+
+=== Number of neighbors (k): 3 ===
+Test Recall: 0.5241
+
+=== Number of neighbors (k): 5 ===
+Test Recall: 0.5214
+
+=== Number of neighbors (k): 7 ===
+Test Recall: 0.5294
+
+=== Number of neighbors (k): 9 ===
+Test Recall: 0.4893
+
+=== Number of neighbors (k): 11 ===
+Test Recall: 0.4813
+
+=== Number of neighbors (k): 13 ===
+Test Recall: 0.4947
+
+=== Number of neighbors (k): 15 ===
+Test Recall: 0.4920
+
+=== CONCLUSION: k with the maximum recall: 7 ===
