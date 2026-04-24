@@ -96,8 +96,18 @@
   },
   {
     "start": 55.0,
+    "end": 56.0,
+    "text": "It's a leaf."
+  },
+  {
+    "start": 56.0,
+    "end": 57.0,
+    "text": "All right."
+  },
+  {
+    "start": 57.0,
     "end": 60.0,
-    "text": "It's a leaf. Alright. Now, where does the leaf come in, in this world?"
+    "text": "But now, where does the leaf come in, in this world?"
   },
   {
     "start": 60.0,
@@ -186,8 +196,8 @@
   },
   {
     "start": 115.0,
-    "end": 120.0,
-    "text": "This is the guy who pulled that rope up."
+    "end": 120.01999998092651,
+    "text": "Biggest guy in the whole European."
   },
   {
     "start": 120.0,

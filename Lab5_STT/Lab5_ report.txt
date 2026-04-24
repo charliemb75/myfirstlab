@@ -1,0 +1,50 @@
+Only the last part of the recording is analyzed here, since it is the part with the most foreign words and ininteligeable bits.
+
+
+TRANSCRIPTION PROVIDED WITH THE RECORDING
+
+CASSIDY: Uh huh, well, about how much fish do they get out of a good haul of those?
+INFORMANT: Once I saw a [xx]—they caught about, about a ton I guess of those, uh, akule. Oh, they were nice [xx].
+CASSIDY: What’s akule?
+INFORMANT: Mmm, akule—some kinda, you know, the [Polynese] call akule akule.  [Japanese] call it [hajiji?]
+
+
+BASIC TRANSCRIPTION (WITHOUT CHUNKING OR PROMPTS)
+
+Uh-huh. Well, about how much fish do they get out of a good haul of those? Once I saw a white mare, they caught about... About a ton, I guess, of those akule. Oh, they have a nice crew up there. What's akule? That akule... Some kind of... You know, how we used to call akule, akule. The Japanese call it aji.
+
+Comment:
+- Overall a very Good transcription already, specially taking into account the strong accent from one of the speakers.
+- failed to recognize "Polynese" and "hajiji", hallucinated the bits that not even the official transcription provides (marked with [xx]).
+
+
+TRANSCRIPTION WITH PROMPTS
+
+prompt given: "hukilau, lau, akule, Polynese, Japanese, hajiji"
+
+Uh-huh. Well, about how much fish do they get out of a good haul of those? Once I saw up at Waimea, they caught about, about a ton, I guess, those Akule. Oh, they have a nice crew up there. What's Akule? That Akule, some kind of, you know, how we used to call Akule, Akule, Japanese called it Aji.
+
+Comment:
+- No noticeable improvements, still fails to recognize "Polynese" and "hajiji" even if they are given as context.
+
+
+TRANSCRIPTION WITH CHUNKING
+
+Chunk 6: ada sesuatu untuk mengekalkan kapal terbang? ada beberapa kapal terbang yang terbang
+...
+Chunk 32: Well, about how much fish did it get out of her?
+Chunk 33: Once I saw a white male, they caught about...
+Chunk 34: About a ton, I guess, of those Akule. Oh, they have a nice crew.
+Chunk 35: フワツクレ
+Chunk 36: So I'm gonna, you know, how I wish to call it, I couldn't, I didn't call it.
+Chunk 37:
+
+Comment:
+- Shown: 5-second chunks
+- With such short chunks, the transcription is overall worse than without chunking
+- Sometimes (chunk 6, 35) the chunks are too short for the model to even recognize the language correctly (shown: 5 second chunks)
+
+
+CHALLENGES FACED
+- Determine the optimal lenght for a chunk
+- Using "language="en"" in the API call preventing the model from misjudging the spoken language without sufficient context within a chunk
