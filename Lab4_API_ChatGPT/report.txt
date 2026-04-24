@@ -1,0 +1,17 @@
+How the API integration works.
+- Function "create_product_listing_prompt":
+    Creates the prompt for calling the API later.
+    Receives the information about the product as a row from the imported DataFrame
+    The prompt specifies the format for the lising (title, product description, features of the product, keywords)
+- Function "generate_response":
+    Receives a row of a DataFrame with the product information (including the image, already converted)
+    Calls "create_product_listing_prompt" to generate the prompt for analysing the image
+    Uses GPT-4o with the generated prompt and the corresponding image to describe the product in the corresponding format
+- Loop at the end to iterate over the rows of the DataFrame and generate responses for the desired products.
+
+Challenges you faced
+- Learning how to convert a PIL image to base64 (used an LLM for generating the corresponding lines).
+
+Quality of generated listings
+- Satisfactory overall. They follow the specified format and represent the products well.
+- Descriptions a bit too long for my personal taste
