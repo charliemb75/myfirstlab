@@ -1,6 +1,6 @@
 """Main application entry point."""
 import sys
-from summarizer import NewsSummarizer #, AsyncNewsSummarizer
+from summarizer import NewsSummarizer, AsyncNewsSummarizer
 import asyncio
  
 def main():

@@ -1,8 +1,8 @@
 """News summarizer with multi-provider support."""
 from news_api import NewsAPI
 from llm_providers import LLMProviders
-# import asyncio
-# import aiohttp
+import asyncio
+import aiohttp
  
 class NewsSummarizer:
     """Summarize news articles using multiple LLM providers."""
@@ -126,6 +126,55 @@ Be concise (2-3 sentences)."""
         print(f"  Output: {summary['total_output_tokens']:,}")
         print(f"Average cost per request: ${summary['average_cost']:.6f}")
         print("="*80)
+
+class AsyncNewsSummarizer(NewsSummarizer):
+    """Async version for processing multiple articles concurrently."""
+    
+    async def summarize_article_async(self, article):
+        """Async version of summarize_article."""
+        # Note: The LLM API calls themselves are not async in this simple version
+        # For true async, you'd need to use aiohttp with the API endpoints directly
+        # This version just allows concurrent processing of multiple articles
+        
+        return await asyncio.to_thread(self.summarize_article, article)
+    
+    async def process_articles_async(self, articles, max_concurrent=3):
+        """
+        Process articles concurrently.
+        
+        Args:
+            articles: List of articles
+            max_concurrent: Maximum concurrent processes
+        
+        Returns:
+            List of results
+        """
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def process_with_semaphore(article):
+            async with semaphore:
+                return await self.summarize_article_async(article)
+        
+        tasks = [process_with_semaphore(article) for article in articles]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Filter out exceptions
+        valid_results = [r for r in results if not isinstance(r, Exception)]
+        
+        return valid_results
+ 
+# Test async version
+async def test_async():
+    summarizer = AsyncNewsSummarizer()
+    
+    # Fetch more articles
+    print("Fetching news articles...")
+    articles = summarizer.news_api.fetch_top_headlines(category="technology", max_articles=5)
+    
+    if articles:
+        print(f"\nProcessing {len(articles)} articles concurrently...")
+        results = await summarizer.process_articles_async(articles, max_concurrent=3)
+        summarizer.generate_report(results)
  
 # Test the module
 if __name__ == "__main__":
@@ -144,3 +193,7 @@ if __name__ == "__main__":
         
         # Generate report
         summarizer.generate_report(results)
+
+    print("\n========= Testing async =========")
+    
+    asyncio.run(test_async())
