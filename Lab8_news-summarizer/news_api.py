@@ -11,6 +11,10 @@ class NewsAPI:
         self.base_url = "https://newsapi.org/v2"
         self.last_call_time = 0
         self.min_interval = 60.0 / Config.NEWS_API_RPM  # Rate limiting
+
+    def _clean_text(self, value, default=""):
+        """Return a string for optional NewsAPI text fields."""
+        return value if isinstance(value, str) else default
     
     def _wait_if_needed(self):
         """Wait if we need to rate limit."""
@@ -56,13 +60,14 @@ class NewsAPI:
             # Extract relevant fields
             processed_articles = []
             for article in articles:
+                source = article.get("source") or {}
                 processed_articles.append({
-                    "title": article.get("title", ""),
-                    "description": article.get("description", ""),
-                    "content": article.get("content", ""),
-                    "url": article.get("url", ""),
-                    "source": article.get("source", {}).get("name", "Unknown"),
-                    "published_at": article.get("publishedAt", "")
+                    "title": self._clean_text(article.get("title")),
+                    "description": self._clean_text(article.get("description")),
+                    "content": self._clean_text(article.get("content")),
+                    "url": self._clean_text(article.get("url")),
+                    "source": self._clean_text(source.get("name"), "Unknown"),
+                    "published_at": self._clean_text(article.get("publishedAt"))
                 })
             
             print(f"✓ Fetched {len(processed_articles)} articles from News API")
