@@ -1,204 +1,382 @@
-# %% [markdown]
-# # Lab 4: Product listings - ChatGPT API
-
-# %% [markdown]
-# ## Step 1: Set-Up
-
-"""
-Automation of creation of product listings with ChatGPT
-Author: Carlos Martinez Boto
-"""
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
-from pydantic import BaseModel
-from typing import List
-load_dotenv()
 import json
-from datasets import load_dataset
-import requests
-from PIL import Image
-import pandas as pd
-from pathlib import Path
-from IPython.display import display
-
-# Initialize client
-client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
-
-# %% [markdown]
-# ## Step 2: Preparing the Dataset
-
-# Load dataset from HuggingFace
-print("Loading product dataset...")
-try:
-    # Try loading the dataset
-    dataset = load_dataset("ashraq/fashion-product-images-small", split="train[:100]")  # First 100 samples
-    print(f"✓ Loaded {len(dataset)} products")
-    
-    # Convert to pandas for easier manipulation
-    products_df = pd.DataFrame(dataset)
-    print(f"Dataset columns: {products_df.columns.tolist()}")
-    
-except Exception as e:
-    print(f"⚠ Could not load HuggingFace dataset: {e}")
-    print("Using local images instead...")
-    
-    # Alternative: Use local images
-    # Create a products.json file with product information
-    products_data = [
-        {
-            "id": 1,
-            "name": "Wireless Headphones",
-            "price": 79.99,
-            "category": "Electronics",
-            "image_path": "images/product1.jpg"
-        },
-        # Add more products...
-    ]
-    
-    products_df = pd.DataFrame(products_data)
-
-
-# %%
-# Create images directory
-images_dir = Path("product_images")
-images_dir.mkdir(exist_ok=True)
- 
-print(f"\n✓ Dataset prepared!")
-print(f"  Total products: {len(products_df)}")
-
-# %%
-# print(products_df['image'].head())
-# for _, row in products_df.head().iterrows():
-#     display(row["image"])
-
-# %% [markdown]
-# ## Step 3: Encoding Images for API
-
-# %%
 import base64
 from io import BytesIO
+from pathlib import Path
+from typing import List, Dict, Any
 
-# Read an image file and returns a Base64-encoded string
-def pil_to_base64(img):
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+import pandas as pd
+from dotenv import load_dotenv
+from datasets import load_dataset
+from PIL import Image
+from pydantic import BaseModel, ValidationError
+from cohere import Client
 
-# %%
-products_df["image_base64"] = products_df["image"].apply(pil_to_base64)
-print(products_df[["image", "image_base64"]].head())
 
-# %% [markdown]
-# ## Step 4: Creating the Product Listing Prompt
+# =========================
+# CONFIG
+# =========================
 
-# %%
-def create_product_listing_prompt(df_row):
-    """
-    Create a prompt for generating product listings.
-    
-    Parameters:
-    - product_name: Name of the product
-    - price: Price of the product
-    - category: Product category
-    - additional_info: Optional additional information
-    
-    Returns:
-    - Formatted prompt string
-    """
-    prompt = f"""You are an expert e-commerce copywriter. Analyze the product image and create a compelling product listing.
- 
-Product Information:
-- ID: {df_row['id']}
-- Gender: {df_row['gender']}
-- Category: {df_row['masterCategory']}; {df_row['subCategory']}; {df_row['articleType']}
-- Colour: {df_row['baseColour']}
-- Season, Usage: {df_row['season']}; {df_row['usage']}
-- Year: {df_row['year']:.0f}
-- Display name: {df_row['productDisplayName']}
- 
-Please create a professional product listing that includes:
- 
-1. **Product Title** (catchy, SEO-friendly, 60 characters max)
-2. **Product Description** (detailed, 150-200 words)
-   - Highlight key features and benefits
-   - Use persuasive language
-   - Include relevant details visible in the image
-3. **Key Features** (bullet points, 5-7 items)
-4. **SEO Keywords** (comma-separated, 10-15 relevant keywords)
- 
-Format your response as JSON with the following structure:
-{{
-    "title": "Product title here",
-    "description": "Full description here",
-    "features": ["Feature 1", "Feature 2", ...],
-    "keywords": "keyword1, keyword2, ..."
-}}
- 
-Be specific about what you see in the image. Mention colors, materials, design elements, and any distinctive features."""
-    
-    return prompt
+class Config:
+    MODEL = "command-r7b-12-2024"
+    DATASET_NAME = "ashraq/fashion-product-images-small"
+    DATASET_SPLIT = "train[:100]"
+    OUTPUT_FILE = "Lab7_Python_LowCode/product_listings.json"
 
-# %%
-# Test prompt creation
-test_prompt = create_product_listing_prompt(products_df.iloc[0])
- 
-print("\n" + "="*50)
-print("PROMPT TEMPLATE")
-print("="*50)
-print(test_prompt[:500] + "...")  # Show first 500 characters
 
-# %% [markdown]
-# ## Step 5: Calling the ChatGPT API with Vision
+# =========================
+# MODELS (Validation)
+# =========================
 
-# %%
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[
-        {"role": "user",
-        "content": [{"type": "text", "text": test_prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{products_df['image_base64'].iloc[0]}"}}]
+class ProductListing(BaseModel):
+    title: str
+    description: str
+    features: List[str]
+    keywords: List[str]
+
+
+# =========================
+# ENV / CLIENT
+# =========================
+
+def init_client() -> Client:
+    try:
+        load_dotenv()
+        api_key = os.getenv("COHERE_API_KEY")
+
+        if not api_key:
+            raise ValueError("COHERE_API_KEY is missing in environment variables.")
+
+        return Client(api_key=api_key)
+    except Exception as e:
+        error_msg = (
+            f"ERROR in init_client(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~32\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure COHERE_API_KEY is set in .env file or environment variables. Check if .env file exists and is in the correct directory."
+        )
+        print(error_msg)
+        raise
+
+
+# =========================
+# DATA LOADING
+# =========================
+
+def load_products() -> pd.DataFrame:
+    try:
+        dataset = load_dataset(Config.DATASET_NAME, split=Config.DATASET_SPLIT)
+        df = pd.DataFrame(dataset)
+        print(f"✓ Loaded dataset with {len(df)} rows")
+        return df
+    except Exception as e:
+        error_msg = (
+            f"ERROR in load_products(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~55\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check internet connection and dataset name '{Config.DATASET_NAME}'. Ensure 'datasets' library is installed. Verify dataset split '{Config.DATASET_SPLIT}' is valid."
+        )
+        print(error_msg)
+        return create_fallback_dataset()
+
+
+def create_fallback_dataset() -> pd.DataFrame:
+    data = [
+        {
+            "id": 1,
+            "productDisplayName": "Wireless Headphones",
+            "image_path": "images/product1.jpg"
         }
     ]
-)
-print(response.choices[0].message.content)
-
-# %% [markdown]
-# ## Step 6: Processing Multiple Products
-
-# %%
-def generate_response(df_row):
-    prompt = create_product_listing_prompt(df_row)
-    image = {"url": f"data:image/png;base64,{df_row['image_base64']}"}
-
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "user",
-            "content": [{"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": image}]
-            }
-        ]
-    )
-    return response.choices[0].message.content
-
-# %%
-start = 0
-end = 4 # len(products_df)
-all_results = []
-
-for idx, row in products_df.iloc[start:end].iterrows():
-    print(f"\n===== ROW {idx} =====")
-
-    result = generate_response(row)
-    products_df.loc[idx, "listing_raw"] = result
-
-    display(row["image"])
-    all_results.append(result)
-    print(result)
-
-# %%
-with open("product_listings.json", "w", encoding="utf-8") as f:
-    json.dump(all_results, f, indent=2, ensure_ascii=False)
+    df = pd.DataFrame(data)
+    return df
 
 
+# =========================
+# IMAGE HANDLING
+# =========================
+
+def pil_to_base64(img: Image.Image) -> str:
+    try:
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+    except Exception as e:
+        error_msg = (
+            f"ERROR in pil_to_base64(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~80\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure the PIL Image object is valid and not corrupted. Check if the image format is supported."
+        )
+        print(error_msg)
+        raise
+
+
+def load_image_as_base64(row: pd.Series) -> str:
+    try:
+        if "image" in row and isinstance(row["image"], Image.Image):
+            return pil_to_base64(row["image"])
+
+        if "image_path" in row and Path(row["image_path"]).exists():
+            img = Image.open(row["image_path"])
+            return pil_to_base64(img)
+
+        raise ValueError(f"No valid image found for row {row.get('id')}")
+    except Exception as e:
+        error_msg = (
+            f"ERROR in load_image_as_base64(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~90\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check if the image file exists at the specified path. Ensure the image is not corrupted and is in a supported format (PNG, JPG, etc.). Verify the row contains either an 'image' column with PIL Image or 'image_path' with valid file path."
+        )
+        print(error_msg)
+        raise
+
+
+def build_image_payload(base64_str: str) -> Dict[str, Any]:
+    try:
+        return {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{base64_str}"}
+        }
+    except Exception as e:
+        error_msg = (
+            f"ERROR in build_image_payload(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~110\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure base64_str is a valid string. Check if the base64 encoding is correct."
+        )
+        print(error_msg)
+        raise
+
+
+# =========================
+# PROMPT
+# =========================
+
+def create_product_prompt(product: Dict[str, Any]) -> str:
+    try:
+        return f"""
+You are an expert e-commerce copywriter.
+
+Product Info:
+- Name: {product.get('productDisplayName')}
+- Category: {product.get('masterCategory')}
+- Subcategory: {product.get('subCategory')}
+- Type: {product.get('articleType')}
+- Color: {product.get('baseColour')}
+
+Return JSON:
+{{
+  "title": "...",
+  "description": "...",
+  "features": ["..."],
+  "keywords": ["..."]
+}}
+"""
+    except Exception as e:
+        error_msg = (
+            f"ERROR in create_product_prompt(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~120\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure the product parameter is a valid dictionary with expected keys. Check if product.get() calls are working correctly."
+        )
+        print(error_msg)
+        raise
+
+
+# =========================
+# API CALL
+# =========================
+
+def call_cohere(client: Client, prompt: str, image_b64: str = None) -> str:
+    try:
+        response = client.chat(
+            model=Config.MODEL,
+            max_tokens=512,
+            message=prompt
+        )
+        return response.text
+    except Exception as e:
+        error_msg = (
+            f"ERROR in call_cohere(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~150\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check API key validity and network connection. Ensure Cohere client is properly initialized. Verify model '{Config.MODEL}' is available. Check prompt length and content."
+        )
+        print(error_msg)
+        raise RuntimeError(f"Cohere API call failed: {e}")
+
+
+# =========================
+# RESPONSE HANDLING
+# =========================
+
+def parse_api_response(raw_text: str) -> Dict[str, Any]:
+    try:
+        raw_text = raw_text.strip()
+        
+        if raw_text.startswith("```"):
+            raw_text = raw_text.strip("`")
+            raw_text = raw_text.replace("json\n", "", 1)
+
+        return json.loads(raw_text)
+    except json.JSONDecodeError as e:
+        error_msg = (
+            f"ERROR in parse_api_response(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~165\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check the raw API response format. Ensure the model returned valid JSON. Look for markdown code blocks or extra text in the response."
+        )
+        print(error_msg)
+        raise ValueError("Invalid JSON returned by model")
+    except Exception as e:
+        error_msg = (
+            f"ERROR in parse_api_response(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~165\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure raw_text is a valid string. Check for None or unexpected data types."
+        )
+        print(error_msg)
+        raise
+
+
+def validate_product_data(data: Dict[str, Any]) -> ProductListing:
+    try:
+        return ProductListing(**data)
+    except ValidationError as e:
+        error_msg = (
+            f"ERROR in validate_product_data(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~185\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check the data dictionary structure. Ensure it contains required fields: title (str), description (str), features (list), keywords (list). Verify data types match the ProductListing model."
+        )
+        print(error_msg)
+        raise ValueError(f"Validation failed: {e}")
+    except Exception as e:
+        error_msg = (
+            f"ERROR in validate_product_data(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~185\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure data is a valid dictionary. Check if pydantic is properly installed."
+        )
+        print(error_msg)
+        raise
+
+
+def format_output(product: Dict[str, Any], listing: ProductListing) -> Dict[str, Any]:
+    try:
+        return {
+            "id": product.get("id"),
+            "name": product.get("productDisplayName"),
+            "listing": listing.model_dump()
+        }
+    except Exception as e:
+        error_msg = (
+            f"ERROR in format_output(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~205\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure product is a valid dictionary and listing is a ProductListing instance. Check if model_dump() method is available."
+        )
+        print(error_msg)
+        raise
+
+
+# =========================
+# PIPELINE
+# =========================
+
+def process_product(client: Client, row: pd.Series) -> Dict[str, Any]:
+    try:
+        product_dict = row.to_dict()
+
+        prompt = create_product_prompt(product_dict)
+
+        raw_response = call_cohere(client, prompt)
+        parsed = parse_api_response(raw_response)
+        validated = validate_product_data(parsed)
+
+        return format_output(product_dict, validated)
+
+    except Exception as e:
+        error_msg = (
+            f"ERROR in process_product(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~215\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check the row data structure. Ensure client is properly initialized. Verify API response parsing and validation steps. Check individual function calls within this pipeline."
+        )
+        print(error_msg)
+        return {
+            "id": row.get("id"),
+            "error": str(e)
+        }
+
+
+def process_dataset(client: Client, df: pd.DataFrame, limit: int = 5) -> List[Dict]:
+    try:
+        print(f"Limit set to {limit} rows")
+        
+        results = []
+
+        for idx, row in df.head(limit).iterrows():
+            print(f"Processing row {idx}")
+            result = process_product(client, row)
+            results.append(result)
+
+        return results
+    except Exception as e:
+        error_msg = (
+            f"ERROR in process_dataset(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~235\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Ensure df is a valid pandas DataFrame. Check client initialization. Verify limit is a positive integer. Check process_product function for individual row errors."
+        )
+        print(error_msg)
+        raise
+
+
+# =========================
+# OUTPUT
+# =========================
+
+def save_results(results: List[Dict], file_path: str):
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+
+        print(f"✓ Results saved to {file_path}")
+    except Exception as e:
+        error_msg = (
+            f"ERROR in save_results(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~255\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check write permissions for the directory. Ensure file_path is a valid string. Verify results is JSON serializable. Check disk space."
+        )
+        print(error_msg)
+        raise
+
+
+# =========================
+# MAIN
+# =========================
+
+def main():
+    try:
+        client = init_client()
+        df = load_products()
+
+        results = process_dataset(client, df, limit=4)
+        save_results(results, Config.OUTPUT_FILE)
+    except Exception as e:
+        error_msg = (
+            f"ERROR in main(): {type(e).__name__}\n"
+            f"  Location: d:\\Documents\\Bootcamp\\4_Labs\\Lab7_Python_LowCode\\product_generator_refactored.py, line ~275\n"
+            f"  Message: {str(e)}\n"
+            f"  Suggestion: Check the overall pipeline. Ensure all dependencies are installed. Verify configuration values. Run individual functions to isolate the issue."
+        )
+        print(error_msg)
+        raise
+
+
+if __name__ == "__main__":
+    main()

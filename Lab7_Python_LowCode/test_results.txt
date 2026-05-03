@@ -1,0 +1,62 @@
+--- validate_product_data ---
+✓ Valid data passed: title='Test Product' description='This is a test description' features=['Feature 1', 'Feature 2'] keywords=['test, product']
+ERROR in validate_product_data(): ValidationError
+  Location: d:\Documents\Bootcamp\4_Labs\Lab7_Python_LowCode\product_generator_refactored.py, line ~185
+  Message: 3 validation errors for ProductListing
+description
+  Field required [type=missing, input_value={'title': 'Missing fields'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+features
+  Field required [type=missing, input_value={'title': 'Missing fields'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+keywords
+  Field required [type=missing, input_value={'title': 'Missing fields'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+  Suggestion: Check the data dictionary structure. Ensure it contains required fields: title (str), description (str), features (list), keywords (list). Verify data types match the ProductListing model.
+✓ Invalid data correctly failed: Validation failed: 3 validation errors for ProductListing
+description
+  Field required [type=missing, input_value={'title': 'Missing fields'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+features
+  Field required [type=missing, input_value={'title': 'Missing fields'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+keywords
+  Field required [type=missing, input_value={'title': 'Missing fields'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+
+--- create_product_prompt ---
+Prompt preview:
+
+You are an expert e-commerce copywriter.
+
+Product Info:
+- Name: Cool Sneakers
+- Category: Footwear
+- Subcategory: Shoes
+- Type: Sneakers
+- Color: White
+
+Return JSON:
+{
+  "title": "...",
+  "descriptio
+✓ Prompt contains product info
+
+--- parse_api_response ---
+✓ Parsed JSON: {'title': 'Test', 'description': 'Desc', 'features': ['A'], 'keywords': ['x']}
+ERROR in parse_api_response(): JSONDecodeError
+  Location: d:\Documents\Bootcamp\4_Labs\Lab7_Python_LowCode\product_generator_refactored.py, line ~165
+  Message: Expecting value: line 1 column 1 (char 0)
+  Suggestion: Check the raw API response format. Ensure the model returned valid JSON. Look for markdown code blocks or extra text in the response.
+✓ Correctly failed: Invalid JSON returned by model
+
+--- format_output ---
+{'id': 1, 'name': 'Test Product', 'listing': {'title': 'Title', 'description': 'Desc', 'features': ['A', 'B'], 'keywords': ['x, y']}}
+✓ Output formatted correctly
+
+--- load_image_as_base64 ---
+✓ Image encoded, length: 104
+
+--- build_image_payload ---
+{'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,abc123'}}
+✓ Payload correct

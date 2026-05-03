@@ -1,0 +1,34 @@
+## Refactoring Checklist
+ 
+### Issues Found:
+- [1] Most of the workflow runs at top level. This makes the script hard to reuse or test.
+        - load env, create client
+        - load dataset, encode images
+        - test prompt, call API
+        - loop over rows, save JSON.
+- [1] Function generate response() should become separate helpers. Currently does:
+        - prompt creation
+        - image payload formatting
+        - API calling
+        - response extraction
+- [1] The API call structure is duplicated once for the test request and once inside generate_response()
+- [2] Image URL construction (data:image/png;base64,...) is repeated conceptually: appears in the standalone call and in generate_response()
+- [2] The dataset fallback creates rows with image_path, but later code assumes an image column exists. If HuggingFace loading fails, the script likely breaks later at products_df["image"]
+- [3] No explicit check that OPENAI_API_KEY exists before creating the client.
+- [3] API failures are not caught or reported with context like product id / row index.
+- [2] The model is instructed to return JSON, but the response is saved raw without parsing or validation. Invalid JSON would pass through unnoticed.
+- [2] Dataset loading, fallback data creation, dataframe conversion, and printing are mixed together.
+- [2] Prompt construction directly reaches into dataframe fields, so prompt formatting and row schema assumptions are tightly coupled.
+- [2] The product-processing loop mixes generation, dataframe mutation, notebook display, result collection, and console output.
+- [1] File output is top-level and not separated into a save/export function.
+
+HARDCODED VALUES
+- [3] Dataset name and slice: "ashraq/fashion-product-images-small", "train[:100]".
+- [3] Model name "gpt-4o" (twice).
+- [3] Prompt rules like title length, description word count, feature count, and keyword count are embedded in the prompt.
+- [3] Output filename "product_listings.json" is hardcoded.
+ 
+### Priority:
+1. [Most critical issue]
+2. [Second priority]
+3. [Third priority]

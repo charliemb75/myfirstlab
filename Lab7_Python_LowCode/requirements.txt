@@ -1,0 +1,6 @@
+pandas
+python-dotenv
+datasets
+Pillow
+pydantic
+cohere
